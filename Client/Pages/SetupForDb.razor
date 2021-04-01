@@ -1,0 +1,208 @@
+﻿@page "/setup"
+
+@inject HttpClient Http
+@using EFBlazorBasics_Wasm.Shared
+
+<h1>Setup for Database</h1>
+<h2>Add Initial Data <i><small>Done</small></i></h2>
+
+<h3>Getting Started-Get some data: </h3>
+<button @onclick="PopulateDB">Populate/Re-populate database with fresh data</button>
+<br />
+<br />
+<b>Nb: </b><i>This will also clear the database and generate a fresh set of data from the Json String (and save it):.</i>
+<br />
+<code>[{"Round":{"No":1},"Helper":{"Name":"John Marshall"}, "Task":"Shot Put"},{ "Round":{ "No":2},"Helper":{ "Name":"Sue Burrows"},"Task":"Marshalling"},{ "Round":{ "No":3},"Helper":{ "Name":"Jimmy Beans"},"Task":"Discus"}]</code><br/>
+
+<p>Status:&nbsp;<em>@msg</em></p>
+
+<h2>Database Context Updates <i><small>Done</small></i></h2>
+<ul>
+<li> DbContext will track changes to entities.</li>
+<li> Can toggle whether with entity changes
+<ul>
+    <li><code>Context.SaveChanges()</code> and</li>
+    <li><code>Context.Entry(Entity).State = EntityState.Modified</code></li>
+</ul>
+are actioned after Entity:
+<ul>
+    <li>Add</li>
+    <li>Delete</li>
+    <li>Update</li>
+    <li>etc.</li>
+</ul>
+</li>
+<li>Mark Activity helpers as null before deleting a Helper <i>(Default true)</i>.
+<ul>
+    <li>In principle with EF shouldn't be needed, as is part of ReferentialAction settings.</li>
+    <ul><li><code>onDelete: ReferentialAction.Restrict</code>&nbsp;This automatically should null Helper property of the Activity.</li>
+    <li>cf.&nbsp;<code>onDelete: ReferentialAction.Cascade</code>&nbsp;As per rounds, which when deleted delete all Activities with that round.</li></ul>
+    <li>In server app not needed</li>
+    <li>In this app generates error if not enabled.</li>
+</ul></li>
+<li>Can experiment with whether they are required:
+<ul>
+    <li><font color="blue">@contextSaveChangesAsync</font>&nbsp;
+    <button @onclick="@ToggleSaveChanges">Toggle</button>&nbsp;
+    Enable Db <code>Context.SaveChanges()</code
+    </li>
+    <li><font color="blue">@markContextEntityStateHasChanged</font>&nbsp;
+    <button @onclick="@ToggleMark">Toggle</button>&nbsp;
+    Enable Db <code>Context.Entry(Entity).State = EntityState.Modified</code>
+    </li>
+    <li><font color="blue">@NullActivityHelpersBeforeDeletingHelper</font>&nbsp;
+    <button @onclick="@ToggleNull">Toggle</button>&nbsp;
+    Enable Db <code>Null Activity Helpers Before Deleting a Helper</code>
+    </li>
+</ul>
+</li>
+</ul>
+
+@code {
+    string msg = "";
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        await GetSaveChanges();
+        await GetMark();
+        await GetNull();
+        var acts = (await Http.GetFromJsonAsync<Activity[]>("DbActivitys")).ToList();;
+        msg = $@" Done. There are now {acts.Count()} activities. Now go to next two pages to see the data.";
+    }
+
+
+    private async Task PopulateDB()
+    {
+        msg = " Busy ...";
+        var res = await Http.GetAsync("DbApp/LoadDb");
+        await GetSaveChanges();
+        await GetMark();
+        await GetNull();
+        var acts = (await Http.GetFromJsonAsync<Activity[]>("DbActivitys")).ToList();;
+        msg = $@" Done. There are now {acts.Count()} activities. Now go to next two pages to see the data.";
+
+    }
+
+    private bool contextSaveChangesAsync { get; set; } 
+
+    private async Task ToggleSaveChanges()
+    {
+        var res = await Http.GetAsync("DbApp/ToggleContextSaveChanges");
+        if (res.IsSuccessStatusCode)
+        {
+            bool state;
+            string stateStr = await res.Content.ReadAsStringAsync();
+            if( bool.TryParse(stateStr , out state))
+            {
+                contextSaveChangesAsync = state;
+                msg = " Done.";
+            }
+            else
+                msg = "Failed 1";
+        }
+        else
+            msg = "Failed 2";
+    }
+
+    private async Task GetSaveChanges()
+    {
+        msg = " Busy ...";
+        var res = await Http.GetAsync("DbApp/GetContextSaveChanges");
+        if (res.IsSuccessStatusCode)
+        {
+            bool state;
+            string stateStr = await res.Content.ReadAsStringAsync();
+            if( bool.TryParse(stateStr , out state))
+            {
+                contextSaveChangesAsync = state;
+                msg = " Done.";
+            }
+            else
+                msg = "Failed 1";
+        }
+        else
+            msg = "Failed 2";
+    }
+
+    private bool markContextEntityStateHasChanged { get; set; } 
+
+    private async Task ToggleMark()
+    {
+         
+        var res = await Http.GetAsync("DbApp/ToggleMarkContextEntityChanged");
+        if (res.IsSuccessStatusCode)
+        {
+            bool state;
+            string stateStr = await res.Content.ReadAsStringAsync();
+            if( bool.TryParse(stateStr , out state))
+            {
+                markContextEntityStateHasChanged = state;
+                msg = " Done.";
+            }
+            else
+                msg = "Failed 1";
+        }
+        else
+            msg = "Failed 2";
+    }
+
+    private async Task GetMark()
+    {
+        msg = " Busy ...";
+        var res = await Http.GetAsync("DbApp/GetMarkContextEntityChanged");
+        if (res.IsSuccessStatusCode)
+        {
+            bool state;
+            if( bool.TryParse( await res.Content.ReadAsStringAsync(), out state))
+            {
+                markContextEntityStateHasChanged = state;
+                msg = " Done.";
+            }
+            else
+                msg = "Failed 1";
+        }
+        else
+            msg = "Failed 2";
+    }
+
+    private bool NullActivityHelpersBeforeDeletingHelper { get; set; } = true;
+
+    private async Task ToggleNull()
+    {
+         
+        var res = await Http.GetAsync("DbApp/ToggleNullActivityHelpersBeforeDeletingHelper");
+        if (res.IsSuccessStatusCode)
+        {
+            bool state;
+            string stateStr = await res.Content.ReadAsStringAsync();
+            if( bool.TryParse(stateStr , out state))
+            {
+                NullActivityHelpersBeforeDeletingHelper = state;
+                msg = " Done.";
+            }
+            else
+                msg = "Failed 1";
+        }
+        else
+            msg = "Failed 2";
+    }
+
+    private async Task GetNull()
+    {
+        msg = " Busy ...";
+        var res = await Http.GetAsync("DbApp/GetNullActivityHelpersBeforeDeletingHelper");
+        if (res.IsSuccessStatusCode)
+        {
+            bool state;
+            if( bool.TryParse( await res.Content.ReadAsStringAsync(), out state))
+            {
+                NullActivityHelpersBeforeDeletingHelper = state;
+                msg = " Done.";
+            }
+            else
+                msg = "Failed 1";
+        }
+        else
+            msg = "Failed 2";
+    }
+}
